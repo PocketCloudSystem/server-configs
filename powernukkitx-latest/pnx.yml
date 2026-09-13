@@ -1,11 +1,11 @@
 # Basic settings for your PowerNukkitX server
 settings:
   # Server's IP address
-  ip: %server_ip%
+  ip: '%server_ip%'
   # Server's port
-  port: %server_port%
+  port: ''%server_port%'
   # Maximum number of players
-  maxPlayers: %max_players%
+  maxPlayers: '%max_players%'
   # Default world name
   defaultLevelName: world
   # Whether to enable the allowlist
@@ -13,7 +13,7 @@ settings:
   # The allowlist kick message, applies if the allowlist is enabled
   allowListMessage: Server is white-listed
   # Server's MOTD
-  motd: %name%
+  motd: '%name%'
   # Server's sub-MOTD
   sub-motd: powernukkitx.org
   # Server's language settings
@@ -23,7 +23,7 @@ settings:
   # Whether to enable safe spawn
   safeSpawn: true
   # Tick cycle for server auto-save
-  autoSave: %auto_save%
+  autoSave: '%auto_save%'
   autosaveDelay: 6000
   # Whether to save unknown blocks, such as custom blocks that are not registered
   saveUnknownBlock: true
