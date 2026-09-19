@@ -4,22 +4,22 @@
 listener:
 
   # The Motd which will be displayed in the server tab of a player and returned during ping
-  motd: %name%
+  motd: '%name%'
 
   # The secondary MOTD shown in the server list and returned during ping
   sub_motd: WaterdogPE Proxy
 
   # The name that is shown up in the player list (pause menu)
-  name: %name%
+  name: '%name%'
 
   # The server priority list. If not changed by plugins, the proxy will connect the player to the first of those servers
   priorities: []
 
   # The address to bind the server to
-  host: %server_ip%:%server_port%
+  host: '%server_ip%:%server_port%'
 
   # The maximum amount of players that can connect to this proxy instance
-  max_players: %max_players%
+  max_players: '%max_players%'
 
   # Map the ip a player joined through to a specific server
   # for example skywars.xyz.com => SkyWars-1

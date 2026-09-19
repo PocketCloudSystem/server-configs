@@ -3,7 +3,7 @@ settings:
   # Server's IP address
   ip: '%server_ip%'
   # Server's port
-  port: ''%server_port%'
+  port: '%server_port%'
   # Maximum number of players
   maxPlayers: '%max_players%'
   # Default world name
