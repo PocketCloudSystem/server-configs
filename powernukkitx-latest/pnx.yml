@@ -128,6 +128,20 @@ gameplay-settings:
   # Whether XP orbs spawn. Disabling prevents all experience orb entities (mob
   # kills, mining, furnaces give no XP)
   enableXpOrbs: true
+  # How long a dropped item lives before it despawns, in ticks (20 ticks = 1
+  # second). Lower values keep fewer item entities alive and directly cut level
+  # worker time
+  itemDespawnTicks: 6000
+  # How often, in ticks, a dropped item looks for nearby stacks to merge with. Lower
+  # values collapse item piles faster at the cost of more frequent lookups
+  itemMergeInterval: 25
+  # How far, in blocks, a dropped item looks for stacks to merge with
+  itemMergeRadius: 1.0
+  # How many ticks a resting dropped item waits between scans of the blocks around
+  # it (fire, lava, water, collisions). 1 scans every tick, like vanilla. Higher
+  # values save work on large item piles but make reactions up to that many ticks
+  # late
+  itemRestingScanInterval: 1
   # Whether explosions destroy blocks. Disabling keeps explosion knockback and
   # entity damage but never breaks blocks (stronger than the mobgriefing gamerule;
   # also affects TNT)
@@ -153,6 +167,9 @@ misc-settings:
   # version, etc.) to help the developers understand usage and improve the software.
   # Metrics do not affect performance.
   enableMetrics: true
+  # Optional global Dynamic Properties UUID. Overrides the persisted UUID on startup
+  # when configured.
+  defaultDynamicPropertiesGroupUUID: ''
 # Settings affecting how levels are handled by PowerNukkitX
 level-settings:
   # Whether to enable level thread (Every level has its own thread)
@@ -163,7 +180,8 @@ level-settings:
   autoTickRateLimit: 20
   # Base tick rate
   baseTickRate: 1
-  # pnx.settings.level.alwaystickplayers
+  # Whether to tick all players from the main loop before the levels tick, instead
+  # of during their level's tick. Has no effect when levelThread is enabled
   alwaysTickPlayers: false
   # Whether to load all levels
   loadAllLevels: true
@@ -171,45 +189,53 @@ level-settings:
   chunkUnloadDelay: 15000
   # Limits how many entites can spawn in a world
   entitySpawnCap: 512
-  # Defines the FOV used by the server to prioritize chunk generation
-  fieldOfView: 100
   # Defines the level worker threads. -1 to use all available processors
   levelWorkerThreads: -1
+  # LevelDB backend: java or jni
+  leveldb-backend: java
 # Settings affecting how chunks are handled by PowerNukkitX
 chunk-settings:
   # Limits how many entities can spawn naturally in a chunk.
   spawnLimit: 3
-  # Maximum number of chunks sent to players per tick
-  perTickSend: 32
   # Number of chunks a player needs to receive upon first spawn
   spawnThreshold: 56
   # Tick cycle of chunks
   chunksPerTicks: -1
   # Tick radius of chunks
   tickRadius: 4
-  # Whether chunks perform light updates
-  lightUpdates: true
   # Whether to clear the tick list at the end of each tick
   clearTickList: true
-  # Maximum number of terrain generation tasks executed simultaneously
+  # Maximum number of terrain generation tasks executed simultaneously. Set to -1 or
+  # 0 to disable this limit and use dynamic generation scheduling.
   generationQueueSize: 8
+  # Heap memory budget in MB for caching serialized chunk payloads, so a chunk sent
+  # to several players is only serialized once. Capped at 10% of the maximum heap;
+  # payloads unused for a minute are dropped. 0 disables the cache
+  payloadCacheMemoryMb: 256
+  # Threads that load chunks from disk for players. 0 picks a value from the CPU
+  # count
+  chunkIoThreads: 0
+  # Maximum number of chunk loads a single player may start per tick. Keeps players
+  # joining at once from flooding the disk and the loader threads. 0 or less removes
+  # the limit
+  maxChunkLoadsPerPlayerTick: 32
   # If enabled, every new generated chunk will be saved. Improves performance but
   # world sizes will grow faster.
   saveGenerated: true
-  # Enable this if your BDS imported map have invisble chests, signs, beds, etc.
-  convertBDSChunks: false
   # List for ticking disabled blocks. Example: minecraft:lava
   disableBlockTicking: []
 # Network settings for PowerNukkitX
 network-settings:
-  # Which transport carries Bedrock sessions. raknet: the classic UDP transport
-  # every client finds through the server list. nethernet: WebRTC data channels
-  # reached through a signalling endpoint. Only one is bound
-  transport: raknet
+  # Server upstream bandwidth in Mbps used to budget chunk publication across all
+  # players
+  upstream-bandwidth: 1000
   # Whether the query protocol displays plugin information
   queryPlugins: true
   # Compression level of the compression algorithm used by the server
   compressionLevel: 4
+  # Batches smaller than this many bytes are sent uncompressed; 1 compresses
+  # everything
+  compressionThreshold: 1
   # Zlib compression algorithm provider used by the server. 0 for Java's original
   # algorithm
   # 1 for single-threaded low memory usage algorithm
@@ -224,31 +250,24 @@ network-settings:
   maxDecompressSize: 268435456
   # Whether to enable query
   enableQuery: true
-  # Whether to enable Bedrock packet encryption. Only applies to the raknet
-  # transport; NetherNet already carries the session inside DTLS
-  networkEncryption: true
   # Login time
   checkLoginTime: false
-  # RakNet transport settings
-  raknet:
-    # Maximum number of packets per second
-    packetLimit: 8000
-    # Whether RakNet automatically flushes each connection's outgoing packet queue on
-    # a timer. Disabling stops packets from being sent until something flushes
-    # manually, so leave this on unless you flush yourself
-    autoFlush: true
-    # Time in milliseconds between automatic RakNet flushes when auto-flush is on.
-    # Lower values cut latency but send more, smaller datagrams; higher values batch
-    # more per packet
-    flushInterval: 10
-    # Maximum unsent bytes RakNet will buffer for a single connection before it stops
-    # queueing more (backpressure). Guards server memory against slow or stalled
-    # clients
-    maxQueuedBytes: 67108864
-    # RakNet connection-cookie handling, which mitigates IP-spoofed connection floods.
-    # ACTIVE: validate cookies in-process; OFFLOADED / OFFLOADED_PSK: cookies are
-    # validated by an upstream proxy/DDoS layer; OFF: disable cookies
-    cookieMode: ACTIVE
+  # Maximum number of logins verified at the same time. Further logins wait for a
+  # free slot, see maxQueuedLogins. 0 picks a value from the CPU count
+  maxPendingLogins: 0
+  # Maximum number of logins from one public IP address verified at the same time,
+  # so a single host cannot take every login slot. Loopback and private network
+  # addresses, such as a proxy in front of the server, are not limited. 0 removes
+  # the limit
+  maxPendingLoginsPerAddress: 4
+  # Maximum number of logins waiting for one of the maxPendingLogins slots. Logins
+  # beyond that are refused with a server full message. 0 uses eight times
+  # maxPendingLogins
+  maxQueuedLogins: 0
+  # Threads that verify login chains and prepare encryption. They are kept apart
+  # from world generation so a slow authentication service cannot stall the world. 0
+  # picks a value from the CPU count
+  loginThreads: 0
   # NetherNet transport settings
   nethernet:
     # How the server obtains SDP offers. builtin: it serves the HTTP signalling
@@ -267,9 +286,24 @@ network-settings:
       # derives them from the addresses this host holds, which is wrong behind a NAT or
       # a forwarder; name the endpoint players actually reach in that case
       advertise-addresses: []
-      # Instance metadata. The region and pool keys place this instance, anything else
-      # is a registration tag
-      data: {}
+      # NXS options most servers leave unchanged
+      advanced:
+        # Lets the provider help players connect when they cannot reach this server
+        # directly, for example behind a NAT without port forwarding
+        assisted-joins: false
+        # Lets the provider check from several regions that players can reach this server,
+        # and stop offering addresses that fail
+        connection-checks: true
+        # Finds this server's public address through the provider's STUN servers when it
+        # has none of its own. Not used when advertise-addresses is set
+        stun-discovery: true
+        # Where this server is: country (a two-letter code), city, latitude and longitude.
+        # Empty lets the provider estimate it
+        location: {}
+        # Removes this server from the provider on shutdown. Turn it on when the data
+        # folder does not survive a restart, such as a container without a volume, or
+        # every restart registers a new server
+        deregister-on-shutdown: false
     # TCP port for the NetherNet signalling endpoint. 0 mirrors the server port, which
     # is where clients look for it
     signalingPort: 0
@@ -283,6 +317,12 @@ network-settings:
     # server behind NAT needs one to put a reachable address in the offer. TURN
     # credentials go in the URL, as turn:user:password@host:3478
     ice-servers: []
+    # STUN servers asked for this server's public address, which is then offered to
+    # every player, as stun:host:port. Needs a fixed UDP port for ICE and is not used
+    # when advertise-addresses is set. Empty turns discovery off
+    stun-servers:
+      - stun:stun.cloudflare.com:3478
+      - stun:stun.l.google.com:19302
     # Addresses to put in the ICE candidates clients connect to. Empty derives them
     # from the bind address, which is usually what you want
     advertise-addresses: []
@@ -314,16 +354,20 @@ network-settings:
     # Maximum inbound packets processed per server tick per session (hard cap, excess
     # is dropped)
     maxPacketsPerTick: 500
-    # Maximum command packets per second per player
+    # Maximum command packets per second per player. 0 disables the limit
     maxCommandsPerSecondPerPlayer: 10
-    # Maximum chat packets per second per player
+    # Maximum chat packets per second per player. 0 disables the limit
     maxChatPerSecondPerPlayer: 2
-    # Maximum form response packets per second per player
+    # Maximum form response packets per second per player. 0 disables the limit
     maxFormResponsesPerSecondPerPlayer: 20
-    # Maximum movement packets per second per player
+    # Maximum movement packets per second per player. 0 disables the limit
     # Players can only send one per tick (20/s), but high ping may lead to false
     # rate-limiting.
     maxMovementPacketsPerSecondPerPlayer: 40
+    # Maximum packets per second per player for requests that make the server scan the
+    # level or broadcast to nearby players (map info, lectern updates, sounds,
+    # animations, emotes). Excess is dropped silently. 0 disables the limit
+    maxWorldInteractionPacketsPerSecondPerPlayer: 30
   # Settings related to inbound packet rate limiting
   botnet:
     # Whether to enable botnet / distributed flood detection
@@ -385,4 +429,4 @@ performance-settings:
   batchOperation: 32
 # Version of your pnx.yml. DO NOT MODIFY!
 config:
-  version: 3.0.1
+  version: 3.1.0
